@@ -1,1 +1,16 @@
-# oven_for_calibration
+# Main programs
+Arduino sketches:
+INA219_3_16ina_mux4to1
+MultiStageDACandPIDoperation_5_16ina_mux
+MultiStageDACandPIDoperation_5_16ina_mux_25max
+MultiStageDACoperation_MCP4725_4
+MultiStageThermoregulator_6_8MAX6675
+MultiStageThermoregulator_7_25MAX6675
+MultiStageThermoregulator_simulation_6
+main_program_DAC0808
+main_program_MCP4725
+main_program_MCP4725_with_py_en
+thermocouples_SPI_1_6_25thermo
+
+Python project (user interface):
+oven_python_project_3
