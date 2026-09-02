@@ -32,14 +32,13 @@ class DataExchange:
 
     def send_and_endless_receive(self, serial_port, command, task_queue, to_process):
         self.ser = serial_port
-        self.checking_command_content(command)
+        # self.checking_command_content(command)
         encoded_command = command.encode()
         self.ser.write(encoded_command)
 
-        self.stop_event.clear()  # Сбрасываем событие остановки
+        self.stop_event.clear() 
         self.ser.timeout = 0.5
 
-        # Запускаем поток для чтения
         self.reading_thread = threading.Thread(
             target=self._read_loop,
             args=(to_process,),
@@ -62,13 +61,11 @@ class DataExchange:
                 except queue.Empty:
                     pass
 
-            time.sleep(0.05)  # Проверяем очередь каждые 50 мс
+            time.sleep(0.05)
 
-        # Ждем завершения потока чтения
         if self.reading_thread and self.reading_thread.is_alive():
             self.reading_thread.join(timeout=2.0)
 
-        # Отправляем команду остановки
         try:
             self.ser.write("INA219:stop;".encode())
             logger.info("Команда остановки отправлена на Arduino")
@@ -76,12 +73,11 @@ class DataExchange:
             logger.error(f"Ошибка отправки команды: {e}")
 
     def _read_loop(self, to_process):
-        """Поток для чтения данных"""
+        # Поток для чтения данных
         buffer = ""
 
         while not self.stop_event.is_set():
             try:
-                # Читаем данные
                 if self.ser and self.ser.in_waiting > 0:
                     data = self.ser.read(self.ser.in_waiting)
                     try:
@@ -104,7 +100,7 @@ class DataExchange:
                 break
 
     def _process_line(self, line, to_process):
-        """Обработка строки"""
+        # Обработка строки данных
         try:
             decoded_response = line.rstrip('\r\n')
             logger.info(decoded_response)
@@ -130,12 +126,11 @@ class DataExchange:
         self.ser.write(encoded_command)
 
         self.measuring_active = True
-        self.ser.timeout = 0.01  # Маленький таймаут
+        self.ser.timeout = 0.01
 
         buffer = ""  # Буфер для накопления данных
 
         while self.measuring_active:
-            # Проверяем очередь команд
             if not task_queue.empty():
                 try:
                     task = task_queue.get_nowait()
@@ -146,7 +141,6 @@ class DataExchange:
                 except queue.Empty:
                     pass
 
-            # Читаем данные
             try:
                 response = self.ser.readline()
             except serial.SerialException as e:
@@ -154,23 +148,18 @@ class DataExchange:
                 break
 
             if response:
-                # Декодируем с обработкой ошибок и добавляем в буфер
                 try:
                     decoded_part = response.decode("utf-8")
                     buffer += decoded_part
                 except UnicodeDecodeError as e:
-                    # Если не удалось декодировать, пробуем с заменой
                     decoded_part = response.decode("utf-8", errors="replace")
                     buffer += decoded_part
                     logger.warning(f"Ошибка декодирования: {e}, данные заменены")
-
-            # Обрабатываем полные строки из буфера
+                    
             if '\n' in buffer or '\r\n' in buffer:
                 lines = buffer.split('\r\n')
-                # Последняя часть может быть неполной
                 buffer = lines[-1] if lines else ""
 
-                # Обрабатываем только полные строки
                 for line in lines[:-1]:
                     if line.strip():
                         decoded_response = line.rstrip('\r\n')
@@ -190,7 +179,6 @@ class DataExchange:
 
             time.sleep(0.001)
 
-        # Отправляем команду остановки на Arduino
         self.ser.write("INA219:stop;".encode())
         logger.info("Команда остановки отправлена на Arduino")
         """
@@ -202,15 +190,12 @@ class DataExchange:
         encoded_command = command.encode()
         self.ser.write(encoded_command)
 
-        # Флаг для управления циклом
         self.measuring_active = True
         self.ser.timeout = 0.01
 
         while self.measuring_active:
-            # Проверяем очередь только если она не пуста
             if not task_queue.empty():
                 try:
-                    # Неблокирующая проверка
                     task = task_queue.get_nowait()
                     if isinstance(task, StopReadingFromINA219):
                         logger.info("Получена команда остановки")
@@ -239,12 +224,11 @@ class DataExchange:
                     logger.error("Не удалось конвертировать данные из com-порта в массив данных типа float")
 
             time.sleep(0.001)
-        # Отправляем команду остановки на Arduino
         self.ser.write("INA219:stop;".encode())
         logger.info("Команда остановки отправлена на Arduino")
         """
         """
-        while task_queue.empty():  #   command == "read;" Считывает строки пока не прервут
+        while task_queue.empty():
             response = self.ser.readline()
             decoded_response = response.decode("utf-8").rstrip('\r\n')
             logger.info(decoded_response)
@@ -264,7 +248,7 @@ class DataExchange:
 
     def send_and_receive_n_lines(self, serial_port, command, n, to_process):
         self.ser = serial_port
-        self.checking_command_content(command)
+        # self.checking_command_content(command)
         encoded_command = command.encode()
         self.ser.write(encoded_command)
         for i in range(n):
