@@ -6,10 +6,9 @@ from tkinter import PhotoImage, ttk
 import threading
 import queue
 import logging
-from playsound import playsound
 
 from custom_logging_formatter import CustomFormatter
-from events import ComportInitializedEvent, RTParametersWereSetEvent, RVParametersWereSetEvent, DevicesWereSelected
+from events import ComportInitializedEvent, RTParametersWereSetEvent, RVParametersWereSetEvent, DevicesWereSelected, EndlessReadingEvent, StopReadingEvent, UpdateMonitoringTabInfoFromUsedDevices, UpdateMonitoringTabRealTimePlotting, UpdateStatusBar
 from function_for_tasks import FunctionForTaskProcessing
 from comport_settings import ComportSettings
 from RT_mode_settings import RTSettings
@@ -163,6 +162,11 @@ if __name__ == "__main__":
     def worker():  # Функция, которая выполняется в фоновом потоке (её работа заключается в выполнении задач из очереди)
         function_for_threading = FunctionForTaskProcessing(app, update_status_bar)
 
+        async_tasks = dict()
+        events_mapping = {
+                EndlessReadingEvent: StopReadingEvent
+                }
+
         while True:
             try:
                 task_data = task_queue.get(timeout=1)
@@ -172,11 +176,20 @@ if __name__ == "__main__":
                 logger.info(f"Ошибка: {e}")
                 print(f"Ошибка: {e}")
             else:
-                result_event = function_for_threading.func_for_task_processing(task_data, task_queue, task_done_queue)
-                task_done_queue.put(result_event)
-                update_status_bar(result_event)
-                logger.info(result_event)
+                if task_data in async_tasks:
+                    async_tasks[task_data].set()
+                    async_tasks.pop(task_data)
+                    return
 
+                if not task_data.is_async():
+                    result_event = function_for_threading.func_for_task_processing(task_data, task_queue, task_done_queue)
+                    task_done_queue.put(result_event)
+                    update_status_bar(result_event)
+                    logger.info(result_event)
+                else:
+                    if events_mapping[task_data] not in async_tasks:
+                        event_for_stopping_async_task = function_for_threading.func_for_async_task(task_data, task_done_queue)
+                        async_tasks[events_mapping[task_data]] = event_for_stopping_async_task
     thread = threading.Thread(target=worker, daemon=True)  # Создание фонового потока
     thread.start()
 
@@ -198,6 +211,12 @@ if __name__ == "__main__":
                 settings_tab.RV_settings.update_button_color()
             if isinstance(last_done_event, DevicesWereSelected):
                 monitoring_tab.list_of_used_devices.update_button_color()
+            if isinstance(last_done_event, UpdateStatusBar):
+                status_bar_info.set(last_done_event.message)
+            if isinstance(last_done_event, UpdateMonitoringTabInfoFromUsedDevices):
+                monitoring_tab.info_from_used_devices.update_data(last_done_event.data_array)
+            if isinstance(last_done_event, UpdateMonitoringTabRealTimePlotting):
+                monitoring_tab.real_time_plotting.update_plot(last_done_event.data_array)
         app.after(10, get_result)
 
     get_result()

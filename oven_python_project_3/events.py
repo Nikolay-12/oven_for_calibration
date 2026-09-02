@@ -1,5 +1,9 @@
+from abc import abstractmethod
+
+
 class Event:
-    pass
+    def is_async(self) -> bool:
+        return False
 
 class ComportSettingsEvent(Event):
     def __init__(self, comport_name, baudrate):
@@ -105,7 +109,9 @@ class DevicesWereSelected(Event):
       return "devices were chosen"
 
 class EndlessReadingEvent(Event):
-   pass
+    def is_async(self) -> bool:
+        return True
+
 class EndlessReadingStartedEvent(Event):
    def __str__(self):
       return "reading was started"
@@ -127,3 +133,16 @@ class ScenarioGenerationEvent(Event):
 class ScenarioWasGeneratedEvent(Event):
    def __str__(self):
       return "Scenario was created"
+
+class UpdateStatusBar(Event):
+    def __init__(self, message: str) -> None:
+       super().__init__()
+       self.message = message
+class UpdateMonitoringTabInfoFromUsedDevices(Event):
+    def __init__(self, data_array: list[float]) -> None:
+       super().__init__()
+       self.data_array = data_array
+class UpdateMonitoringTabRealTimePlotting(Event):
+    def __init__(self, data_array: list[float]) -> None:
+       super().__init__()
+       self.data_array = data_array
