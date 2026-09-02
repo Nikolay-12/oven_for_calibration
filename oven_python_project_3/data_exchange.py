@@ -2,7 +2,7 @@ import serial
 
 from data_processing import string_to_float_array, string_to_float_array_without_last_symbol
 from stopwatch import get_current_time, elapsed_time_in_sec
-from events import StopReadingFromINA219
+from events import StopReadingFromINA219, UpdateMonitoringTabInfoFromUsedDevices, UpdateMonitoringTabRealTimePlotting, UpdateStatusBar
 import time
 import queue
 import threading
@@ -10,15 +10,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DataExchange:
-    def __init__(self, parent, update_status_bar):
+    def __init__(self, parent):
         self.parent = parent
         self.ser = None
-        self.stop_event = threading.Event()
         self.reading_thread = None
         self.data_array = None
         self.start_time = None
         self.measuring_active = False
-        self.method_to_update_status_bar = update_status_bar
 
     @staticmethod
     def get_remaining_scenario_data(input_line):
@@ -30,53 +28,26 @@ class DataExchange:
 
 
 
-    def send_and_endless_receive(self, serial_port, command, task_queue, to_process):
+    def send_and_endless_receive(self, serial_port, command, stop_event, to_process, task_done_queue):
         self.ser = serial_port
         # self.checking_command_content(command)
         encoded_command = command.encode()
         self.ser.write(encoded_command)
 
-        self.stop_event.clear() 
         self.ser.timeout = 0.5
 
         self.reading_thread = threading.Thread(
             target=self._read_loop,
-            args=(to_process,),
+            args=(to_process, stop_event, task_done_queue),
             daemon=True
         )
         self.reading_thread.start()
 
-        # Основной цикл проверки команд
-        while not self.stop_event.is_set():
-            if not task_queue.empty():
-                try:
-                    task = task_queue.get_nowait()
-                    if isinstance(task, StopReadingFromINA219):
-                        logger.info("Получена команда остановки")
-                        self.method_to_update_status_bar("Получена команда остановки")
-                        self.stop_event.set()  # Устанавливаем событие остановки
-                        break
-                    #else:
-                    #    logger.info(f"Получена команда {task} во время измерения, она будет проигнорирована")
-                except queue.Empty:
-                    pass
-
-            time.sleep(0.05)
-
-        if self.reading_thread and self.reading_thread.is_alive():
-            self.reading_thread.join(timeout=2.0)
-
-        try:
-            self.ser.write("INA219:stop;".encode())
-            logger.info("Команда остановки отправлена на Arduino")
-        except Exception as e:
-            logger.error(f"Ошибка отправки команды: {e}")
-
-    def _read_loop(self, to_process):
+    def _read_loop(self, to_process, stop_event, task_done_queue):
         # Поток для чтения данных
         buffer = ""
 
-        while not self.stop_event.is_set():
+        while not stop_event.is_set():
             try:
                 if self.ser and self.ser.in_waiting > 0:
                     data = self.ser.read(self.ser.in_waiting)
@@ -89,7 +60,7 @@ class DataExchange:
 
                         for line in lines[:-1]:
                             if line.strip():
-                                self._process_line(line, to_process)
+                                self._process_line(line, to_process, task_done_queue)
                     except Exception as e:
                         logger.error(f"Ошибка декодирования: {e}")
 
@@ -99,21 +70,22 @@ class DataExchange:
                 logger.error(f"Ошибка в потоке чтения: {e}")
                 break
 
-    def _process_line(self, line, to_process):
+    def _process_line(self, line, to_process, task_done_queue):
         # Обработка строки данных
         try:
             decoded_response = line.rstrip('\r\n')
             logger.info(decoded_response)
-            self.method_to_update_status_bar(f"Данные: {decoded_response}")
+            task_done_queue.put(UpdateStatusBar(f"Данные {decoded_response}"))
 
             if to_process:
-                self.data_array = string_to_float_array_without_last_symbol(decoded_response)
-                self.parent.monitoring_tab.info_from_used_devices.update_data(self.data_array)
+                data_array = string_to_float_array_without_last_symbol(decoded_response)
+                task_done_queue.put(UpdateMonitoringTabInfoFromUsedDevices(data_array))
                 current_time = get_current_time()
-                logger.info(f"Time:{current_time} Data:{self.data_array}")
+                logger.info(f"Time:{current_time} Data:{data_array}")
                 elapsed_time = elapsed_time_in_sec(self.start_time, current_time)
-                self.data_array.insert(0, float(elapsed_time))
-                self.parent.monitoring_tab.real_time_plotting.update_plot(self.data_array)
+                data_array.insert(0, float(elapsed_time))
+                task_done_queue.put(UpdateMonitoringTabRealTimePlotting(data_array))
+
         except Exception as e:
             logger.error(f"Ошибка обработки: {e}")
 

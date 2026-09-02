@@ -9,7 +9,7 @@ def string_to_string_array(string_data):
     data_array = string_data.split()
     return data_array
 
-def string_array_to_float_array(string_array):
+def string_array_to_float_array(string_array) -> list[float]:
     float_array = []
     for element in string_array:
         if element == "nan":

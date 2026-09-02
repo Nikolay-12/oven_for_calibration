@@ -1,4 +1,7 @@
+from queue import Queue
+import threading
 from tkinter.messagebox import showerror, showinfo
+from numpy import log
 import serial
 import logging
 logger = logging.getLogger(__name__)
@@ -21,7 +24,7 @@ class FunctionForTaskProcessing:
         self.remaining_script_data = None
         self.lines_for_reading = 0
         self.method_to_update_status_bar = update_status_bar
-        self.data_exchange = DataExchange(parent, self.method_to_update_status_bar)
+        self.data_exchange = DataExchange(parent)
 
     def func_for_task_processing(self, task, task_queue, task_done_queue):
         try:
@@ -86,9 +89,6 @@ class FunctionForTaskProcessing:
 
 
 
-            if isinstance(task, EndlessReadingEvent):
-                self.data_exchange.send_and_endless_receive(self.ser, command="read;", task_queue=task_queue, to_process = False)
-                #return EndlessReadingStartedEvent()
             if isinstance(task, StopReadingEvent):
                 #self.data_exchange.send_line(self.ser, command="stop_reading;")
                 return ReadingStopedEvent()
@@ -105,6 +105,14 @@ class FunctionForTaskProcessing:
 
         except KeyboardInterrupt:
             return None
+
+
+    def func_for_async_task(self, task, task_done_queue) -> threading.Event:
+        stop_event = threading.Event()
+        logger.info(f"Received async task: {task}")
+        if isinstance(task, EndlessReadingEvent):
+            self.data_exchange.send_and_endless_receive(self.ser, "read;", stop_event, False, task_done_queue)
+        return stop_event
 
     # Функции-обработчики событий
     def update_comport_settings(self, comport_name, baudrate):
