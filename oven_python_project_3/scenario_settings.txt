@@ -1,0 +1,6 @@
+RT mode:
+PID settings: kp=3_ki=2_kd=1_dt=0.5;
+time and tolerance settings: stabilization time=40_holding time=20_temperature tolerance=2.5_max stabilization time=100;
+temperature settings: Tmin=50_Tmax=90_deltaT=10;
+stages: 2_50_80;
+mode: 1;

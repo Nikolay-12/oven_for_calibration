@@ -1,0 +1,23 @@
+RT mode:
+PID settings: kp=3_ki=2_kd=1_dt=0.5;
+time and tolerance settings: stabilization time=40_holding time=20_temperature tolerance=2.5_max stabilization time=100;
+temperature settings: Tmin=50_Tmax=90_deltaT=10;
+stages: 2_50_80;
+mode: 1;
+12 float numbers (1 of them int) + stages...(+1)
+
+MAX6675:
+mode: 1;
+1 float numbers (1 of them int)
+
+RV mode:
+time settings: holding time=20;
+voltage settings: Vmin=0_Vmax=3_deltaV=1;
+stages: 4_1_2_2.5_3;
+mode: 1;
+5 float numbers (1 of them int) + stages...(+1)
+
+INA219:
+measurement settings: cycles of measurements=10_period=1;
+mode: 1;
+3 float numbers (1 of them int)
